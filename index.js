@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-// const jwt = require("jsonwebtoken");
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const jwt = require("jsonwebtoken");
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -11,6 +11,27 @@ const port = process.env.PORT || 5000;
 //middleware
 app.use(cors());
 app.use(express.json())
+
+const varifyJWT = (req, res, next) => {
+    const authorization = req.headers.authorization;
+  
+    // console.log("jwt function autho : ",authorization);
+    if (!authorization) {
+      return res.status(401).send({ error: true, message: "unauthorize user" });
+    }
+    const token = authorization.split(" ")[1];
+    // console.log("token from jwt function :", token);
+    // verify a token symmetric
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+      if (err) {
+        return res
+          .status(401)
+          .send({ error: true, message: "unauthorized user" });
+      }
+      req.decoded = decoded;
+      next();
+    });
+  };
 
 
 //mongoDb connections
@@ -35,10 +56,21 @@ async function run() {
     const database = client.db('rhythm-retreate');
     const userCollections = database.collection("users");
 
-
+    // jwt token
+    app.post("/jwt", (req, res) => {
+        const body = req.body;
+        const token = jwt.sign(body, process.env.ACCESS_TOKEN, {
+          expiresIn: '1h',
+        });
+        res.send({ token });
+      });
 
     //API connections
-    
+    //get Apis
+    app.get("/users", async (req,res) => {
+        const result = await userCollections.find().toArray()
+        res.send(result)
+    })
 
     //post Apis
     app.post("/users", async (req, res) => {
@@ -54,6 +86,33 @@ async function run() {
         const result = await userCollections.insertOne(user);
         res.send(result);
       });
+      //PATCH Apis 
+      app.patch('/users/admin/:id', async (req,res) => {
+        const id = req.params.id;
+        const filter = {_id : new ObjectId(id)};
+        // console.log(id);
+        const updateDoc = {
+            $set: {
+                role : 'admin',
+            },
+        };
+        const result = await userCollections.updateOne(filter,updateDoc);
+
+        res.send(result)
+      })
+      app.patch('/users/instructor/:id', async (req,res) => {
+        const id = req.params.id;
+        const filter = {_id : new ObjectId(id)};
+        // console.log(id);
+        const updateDoc = {
+            $set: {
+                role : 'instructor',
+            },
+        };
+        const result = await userCollections.updateOne(filter,updateDoc);
+
+        res.send(result)
+      })
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
