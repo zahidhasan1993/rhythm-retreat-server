@@ -13,7 +13,7 @@ app.use(express.json());
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
 
-//   console.log("jwt function autho : ",authorization);
+  //   console.log("jwt function autho : ",authorization);
   if (!authorization) {
     return res.status(401).send({ error: true, message: "unauthorize user" });
   }
@@ -84,18 +84,23 @@ async function run() {
       res.send(result);
     });
     app.get("/users/instructor/:email", verifyJWT, async (req, res) => {
-        const email = req.params.email;
-  
-        if (req.decoded.email !== email) {
-          res.send({ admin: false });
-        }
-        
-        const query = { email: email };
-        const user = await userCollections.findOne(query);
-        const result = { instructor: user?.role === "instructor" };
-        // console.log('instructor',result);
-        res.send(result);
-      });
+      const email = req.params.email;
+
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
+      }
+
+      const query = { email: email };
+      const user = await userCollections.findOne(query);
+      const result = { instructor: user?.role === "instructor" };
+      // console.log('instructor',result);
+      res.send(result);
+    });
+    app.get("/classes", verifyJWT, async (req, res) => {
+      const result = await classCollections.find().toArray();
+      // console.log(result);
+      res.send(result);
+    });
     //post Apis
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -110,14 +115,14 @@ async function run() {
       const result = await userCollections.insertOne(user);
       res.send(result);
     });
-    app.post('/classes/addclass', async (req,res) => {
-        const body = req.body;
-        const result = await classCollections.insertOne(body);
+    app.post("/classes/addclass", verifyJWT, async (req, res) => {
+      const body = req.body;
+      const result = await classCollections.insertOne(body);
 
-        res.send(result)
-    })
+      res.send(result);
+    });
     //PATCH Apis
-    app.patch("/users/admin/:id", async (req, res) => {
+    app.patch("/users/admin/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       // console.log(id);
@@ -130,7 +135,7 @@ async function run() {
 
       res.send(result);
     });
-    app.patch("/users/instructor/:id", async (req, res) => {
+    app.patch("/users/instructor/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       // console.log(id);
@@ -143,6 +148,7 @@ async function run() {
 
       res.send(result);
     });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
