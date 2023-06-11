@@ -52,6 +52,7 @@ async function run() {
     //Db collections
     const database = client.db("rhythm-retreate");
     const userCollections = database.collection("users");
+    const classCollections = database.collection("classes");
 
     // jwt token
     app.post("/jwt", (req, res) => {
@@ -109,6 +110,12 @@ async function run() {
       const result = await userCollections.insertOne(user);
       res.send(result);
     });
+    app.post('/classes/addclass', async (req,res) => {
+        const body = req.body;
+        const result = await classCollections.insertOne(body);
+
+        res.send(result)
+    })
     //PATCH Apis
     app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
