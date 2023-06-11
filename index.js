@@ -1,21 +1,19 @@
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require('dotenv').config();
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-
-
 //middleware
 app.use(cors());
-app.use(express.json())
+app.use(express.json());
 
-const varifyJWT = (req, res, next) => {
+const verifyJWT = (req, res, next) => {
     const authorization = req.headers.authorization;
   
-    // console.log("jwt function autho : ",authorization);
+    console.log("jwt function autho : ",authorization);
     if (!authorization) {
       return res.status(401).send({ error: true, message: "unauthorize user" });
     }
@@ -32,7 +30,7 @@ const varifyJWT = (req, res, next) => {
       next();
     });
   };
-
+  
 
 //mongoDb connections
 
@@ -44,7 +42,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -53,77 +51,92 @@ async function run() {
     await client.connect();
     // Send a ping to confirm a successful connection
     //Db collections
-    const database = client.db('rhythm-retreate');
+    const database = client.db("rhythm-retreate");
     const userCollections = database.collection("users");
 
     // jwt token
     app.post("/jwt", (req, res) => {
-        const body = req.body;
-        const token = jwt.sign(body, process.env.ACCESS_TOKEN, {
-          expiresIn: '1h',
-        });
-        res.send({ token });
+      const body = req.body;
+      const token = jwt.sign(body, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
       });
+      res.send({ token });
+    });
+
+    //varify admin
+   
 
     //API connections
     //get Apis
-    app.get("/users", async (req,res) => {
-        const result = await userCollections.find().toArray()
-        res.send(result)
-    })
-
-    //post Apis
-    app.post("/users", async (req, res) => {
-        const user = req.body;
-        const query = { email: user.email };
+    app.get("/users", verifyJWT, async (req, res) => {
+      const result = await userCollections.find().toArray();
+      console.log();
+      res.send(result);
+    });
+    app.get("/users/admin/:email" ,async (req,res) => {
+        const email = req.params.email;
   
-        const exitingUser = await userCollections.findOne(query);
-        // console.log(exitingUser);
-        if (exitingUser) {
-          return res.send("user all ready exists");
+        if(req.decoded.email !== email){
+          res.send({admin : false});
         }
   
-        const result = await userCollections.insertOne(user);
+        const query = {email : email};
+        const user = await userCollections.findOne(query);
+        const result = {admin: user?.role === 'admin'}
+  
         res.send(result);
-      });
-      //PATCH Apis 
-      app.patch('/users/admin/:id', async (req,res) => {
-        const id = req.params.id;
-        const filter = {_id : new ObjectId(id)};
-        // console.log(id);
-        const updateDoc = {
-            $set: {
-                role : 'admin',
-            },
-        };
-        const result = await userCollections.updateOne(filter,updateDoc);
-
-        res.send(result)
       })
-      app.patch('/users/instructor/:id', async (req,res) => {
-        const id = req.params.id;
-        const filter = {_id : new ObjectId(id)};
-        // console.log(id);
-        const updateDoc = {
-            $set: {
-                role : 'instructor',
-            },
-        };
-        const result = await userCollections.updateOne(filter,updateDoc);
+    //post Apis
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
 
-        res.send(result)
-      })
+      const exitingUser = await userCollections.findOne(query);
+      // console.log(exitingUser);
+      if (exitingUser) {
+        return res.send("user all ready exists");
+      }
+
+      const result = await userCollections.insertOne(user);
+      res.send(result);
+    });
+    //PATCH Apis
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      // console.log(id);
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollections.updateOne(filter, updateDoc);
+
+      res.send(result);
+    });
+    app.patch("/users/instructor/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      // console.log(id);
+      const updateDoc = {
+        $set: {
+          role: "instructor",
+        },
+      };
+      const result = await userCollections.updateOne(filter, updateDoc);
+
+      res.send(result);
+    });
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
   }
 }
 run().catch(console.dir);
-
-
-
 
 //server
 app.get("/", (req, res) => {
