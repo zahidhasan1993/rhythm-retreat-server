@@ -53,6 +53,7 @@ async function run() {
     const database = client.db("rhythm-retreate");
     const userCollections = database.collection("users");
     const classCollections = database.collection("classes");
+    const cartCollections = database.collection('cart')
 
     // jwt token
     app.post("/jwt", (req, res) => {
@@ -96,7 +97,7 @@ async function run() {
       // console.log('instructor',result);
       res.send(result);
     });
-    app.get("/classes", verifyJWT, async (req, res) => {
+    app.get("/classes", async (req, res) => {
       const result = await classCollections.find().toArray();
       // console.log(result);
       res.send(result);
@@ -104,6 +105,7 @@ async function run() {
     //post Apis
     app.post("/users", async (req, res) => {
       const user = req.body;
+      console.log(user);
       const query = { email: user.email };
 
       const exitingUser = await userCollections.findOne(query);
@@ -121,6 +123,11 @@ async function run() {
 
       res.send(result);
     });
+    app.post('/cart',verifyJWT, async (req,res) => {
+      const body = req.body;
+      const result = await cartCollections.insertOne(body);
+      res.send(result)
+    })
     //PATCH Apis
     app.patch("/users/admin/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
@@ -149,7 +156,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/classes/approve/:id", async (req,res) => {
+    app.patch("/classes/approve/:id",verifyJWT, async (req,res) => {
       const id = req.params.id;
       const filter = {_id : new ObjectId(id)};
       const updateDoc= {
@@ -161,7 +168,7 @@ async function run() {
 
       res.send(result);
     })
-    app.patch("/classes/deny/:id", async (req,res) => {
+    app.patch("/classes/deny/:id",verifyJWT, async (req,res) => {
       const id = req.params.id;
       const filter = {_id : new ObjectId(id)};
       const updateDoc= {
@@ -173,7 +180,7 @@ async function run() {
 
       res.send(result);
     })
-    app.patch("/classes/feedback/:id", async (req,res) => {
+    app.patch("/classes/feedback/:id",verifyJWT, async (req,res) => {
       const id = req.params.id;
       const filter = {_id : new ObjectId(id)};
       const feedback = req.body;
