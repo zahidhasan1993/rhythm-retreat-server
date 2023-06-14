@@ -3,6 +3,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -53,7 +54,8 @@ async function run() {
     const database = client.db("rhythm-retreate");
     const userCollections = database.collection("users");
     const classCollections = database.collection("classes");
-    const cartCollections = database.collection('cart')
+    const cartCollections = database.collection("cart");
+    const paymentCollection = database.collection('payments')
 
     // jwt token
     app.post("/jwt", (req, res) => {
@@ -66,7 +68,7 @@ async function run() {
 
     //API connections
     //get Apis
-    app.get("/users", verifyJWT, async (req, res) => {
+    app.get("/users", async (req, res) => {
       const result = await userCollections.find().toArray();
       console.log();
       res.send(result);
@@ -102,6 +104,22 @@ async function run() {
       // console.log(result);
       res.send(result);
     });
+    app.get('/classes/:id', async (req,res) => {
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)};
+      const result = await classCollections.findOne(query);
+
+      res.send(result)
+    })
+    app.get("/cart/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+
+      const result = await cartCollections.find(query).toArray();
+
+      res.send(result);
+    });
+
     //post Apis
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -123,10 +141,34 @@ async function run() {
 
       res.send(result);
     });
-    app.post('/cart',verifyJWT, async (req,res) => {
+    app.post("/cart", verifyJWT, async (req, res) => {
       const body = req.body;
       const result = await cartCollections.insertOne(body);
-      res.send(result)
+      res.send(result);
+    });
+
+    //payment gateway
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+      // console.log(paymentIntent.client_secret);
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+    app.post('/payment/:email', verifyJWT, async (req,res) => {
+      const payment = req.body;
+      const email = req.params.email;
+      const paymentResult = await paymentCollection.insertOne(payment);
+      const query = { email: {$regex: email}}
+      const cartResult = await cartCollections.deleteMany(query)
+      res.send({paymentResult, cartResult});
     })
     //PATCH Apis
     app.patch("/users/admin/:id", verifyJWT, async (req, res) => {
@@ -156,46 +198,52 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/classes/approve/:id",verifyJWT, async (req,res) => {
+    app.patch("/classes/approve/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
-      const filter = {_id : new ObjectId(id)};
-      const updateDoc= {
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
         $set: {
           status: "approved",
         },
       };
-      const result = await classCollections.updateOne(filter,updateDoc);
+      const result = await classCollections.updateOne(filter, updateDoc);
 
       res.send(result);
-    })
-    app.patch("/classes/deny/:id",verifyJWT, async (req,res) => {
+    });
+    app.patch("/classes/deny/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
-      const filter = {_id : new ObjectId(id)};
-      const updateDoc= {
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
         $set: {
           status: "denied",
         },
       };
-      const result = await classCollections.updateOne(filter,updateDoc);
+      const result = await classCollections.updateOne(filter, updateDoc);
 
       res.send(result);
-    })
-    app.patch("/classes/feedback/:id",verifyJWT, async (req,res) => {
+    });
+    app.patch("/classes/feedback/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
-      const filter = {_id : new ObjectId(id)};
+      const filter = { _id: new ObjectId(id) };
       const feedback = req.body;
       console.log(feedback);
       const updateDoc = {
         $set: {
-          feedback : feedback,
+          feedback: feedback,
         },
       };
-      const result = await classCollections.updateOne(filter,updateDoc);
+      const result = await classCollections.updateOne(filter, updateDoc);
 
+      res.send(result);
+    });
+    //delete API
+    app.delete("/cart/delete/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const result = await cartCollections.deleteOne(query);
       res.send(result)
-    })
-
-
+    });
 
     //db connection check
 
