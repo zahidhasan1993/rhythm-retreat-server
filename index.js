@@ -166,9 +166,7 @@ async function run() {
       const payment = req.body;
       const email = req.params.email;
       const paymentResult = await paymentCollection.insertOne(payment);
-      const query = { email: {$regex: email}}
-      const cartResult = await cartCollections.deleteMany(query)
-      res.send({paymentResult, cartResult});
+      res.send(paymentResult);
     })
     //PATCH Apis
     app.patch("/users/admin/:id", verifyJWT, async (req, res) => {
@@ -236,6 +234,15 @@ async function run() {
 
       res.send(result);
     });
+    app.patch("/updatecount/:id", async(req,res) => {
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)};
+      const update = { $inc: { student_enrolled: 1 } };
+
+      const result = await classCollections.updateOne(query,update);
+
+      res.send(result);
+    })
     //delete API
     app.delete("/cart/delete/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
