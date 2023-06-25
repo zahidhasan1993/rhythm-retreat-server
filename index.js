@@ -48,7 +48,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
     //Db collections
     const database = client.db("rhythm-retreate");
@@ -119,6 +119,14 @@ async function run() {
 
       res.send(result);
     });
+    app.get('/myclasses/:email', verifyJWT, async(req,res) => {
+      const email = req.params.email;
+      const query = {email: email};
+
+      const result = await paymentCollection.find(query).toArray();
+
+      res.send(result);
+    })
 
     //post Apis
     app.post("/users", async (req, res) => {
